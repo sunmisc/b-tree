@@ -1,4 +1,4 @@
-package mc.sunmisc.tree.io.heap;
+package me.sunmisc.btree.heap;
 
 import java.io.InputStream;
 

@@ -1,10 +1,12 @@
-package mc.sunmisc.tree.io.heap;
+package me.sunmisc.btree.heap;
 
-import mc.sunmisc.tree.io.index.Index;
+import me.sunmisc.btree.index.Index;
 
 import java.io.InputStream;
 
 public interface Indexes extends Iterable<Index> {
+
+    Indexes EMPTY = new ArrayIndexes();
 
     int size();
 
@@ -17,6 +19,4 @@ public interface Indexes extends Iterable<Index> {
     Indexes sub(int offset, int count);
 
     InputStream bytes();
-
-    Indexes EMPTY = new ArrayIndexes(0);
 }

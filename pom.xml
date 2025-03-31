@@ -31,6 +31,7 @@
 
     <properties>
         <junit.version>5.11.4</junit.version>
+        <jmh.version>1.37</jmh.version>
     </properties>
 
     <build>
@@ -48,11 +49,6 @@
     </build>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.calcite</groupId>
-            <artifactId>calcite-core</artifactId>
-            <version>1.39.0</version>
-        </dependency>
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
@@ -94,6 +90,18 @@
             <artifactId>hamcrest</artifactId>
             <version>2.2</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>${jmh.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>

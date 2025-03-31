@@ -1,10 +1,10 @@
-package mc.sunmisc.tree.io.heap;
+package me.sunmisc.btree.heap;
 
-import mc.sunmisc.tree.io.InternalPage;
-import mc.sunmisc.tree.io.LeafPage;
-import mc.sunmisc.tree.io.Page;
-import mc.sunmisc.tree.io.index.Index;
-import mc.sunmisc.tree.io.index.LongIndex;
+import me.sunmisc.btree.Page;
+import me.sunmisc.btree.cow.InternalPage;
+import me.sunmisc.btree.cow.LeafPage;
+import me.sunmisc.btree.index.Index;
+import me.sunmisc.btree.index.LongIndex;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,38 +21,36 @@ public class Nodes {
     private final AtomicLong deleted = new AtomicLong();
     private final Table table;
 
-    public Nodes(Table table) {
+    public Nodes(final Table table) {
         this.table = table;
     }
 
     public Index allocate(final Page page) {
-        final long offset = ids.getAndAdd(PAGE_SIZE);
+        final long offset = this.ids.getAndAdd(PAGE_SIZE);
         final Indexes keys = page.keys();
         final Indexes child = page.children();
-        try (RandomAccessFile file = new RandomAccessFile(DATA_FILE, "rw");
-             FileChannel channel = file.getChannel()) {
-            channel.position(offset);
-            ByteBuffer byteBuffer = ByteBuffer.allocate(PAGE_SIZE);
-
-            try (InputStream ks = keys.bytes()) {
-                byteBuffer.putInt(keys.size());
-                byteBuffer.put(ks.readAllBytes());
+        try (final RandomAccessFile file = new RandomAccessFile(DATA_FILE, "rw");
+             final FileChannel channel = file.getChannel().position(offset)) {
+            final ByteBuffer buffer = ByteBuffer.allocate(PAGE_SIZE);
+            try (final InputStream ks = keys.bytes()) {
+                buffer.putInt(keys.size());
+                buffer.put(ks.readAllBytes());
             }
-            try (InputStream cs = child.bytes()) {
-                byteBuffer.putInt(child.size());
-                byteBuffer.put(cs.readAllBytes());
+            try (final InputStream cs = child.bytes()) {
+                buffer.putInt(child.size());
+                buffer.put(cs.readAllBytes());
             }
-            byteBuffer.flip();
-            channel.write(byteBuffer);
+            buffer.flip();
+            channel.write(buffer);
             return new LongIndex(offset);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     public Page load(final Index index) {
-        try (RandomAccessFile file = new RandomAccessFile(DATA_FILE, "r")) {
-            MappedByteBuffer buffer = file.getChannel()
+        try (final RandomAccessFile file = new RandomAccessFile(DATA_FILE, "rw")) {
+            final MappedByteBuffer buffer = file.getChannel()
                     .map(FileChannel.MapMode.READ_ONLY, index.offset(), PAGE_SIZE);
             final int keysSize = buffer.getInt();
             final byte[] keysArray = new byte[keysSize * Long.BYTES];
@@ -60,14 +58,14 @@ public class Nodes {
             final Indexes keys = new ArrayIndexes(keysArray);
             final int childSize = buffer.getInt();
             if (childSize == 0) {
-                return new LeafPage(keys, table, this);
+                return new LeafPage(keys, this.table, this);
             } else {
                 final byte[] childArray = new byte[childSize * Long.BYTES];
                 buffer.get(childArray);
                 final Indexes child = new ArrayIndexes(childArray);
-                return new InternalPage(table, this, keys, child);
+                return new InternalPage(this.table, this, keys, child);
             }
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new RuntimeException(e);
         }
     }

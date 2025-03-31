@@ -1,7 +1,7 @@
-package mc.sunmisc.tree.io.heap;
+package me.sunmisc.btree.heap;
 
-import mc.sunmisc.tree.io.index.Index;
-import mc.sunmisc.tree.io.index.LongIndex;
+import me.sunmisc.btree.index.Index;
+import me.sunmisc.btree.index.LongIndex;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -9,15 +9,15 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.IntStream;
 
 public final class ArrayIndexes implements Indexes {
+    private static final byte[] EMPTY = new byte[0];
     private static final VarHandle LONG = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
     private final byte[] bytes;
 
-    public ArrayIndexes(final int size) {
-        this(new byte[size * Long.BYTES]);
+    public ArrayIndexes() {
+        this(EMPTY);
     }
 
     public ArrayIndexes(final byte[] bytes) {
@@ -26,32 +26,30 @@ public final class ArrayIndexes implements Indexes {
 
     @Override
     public int size() {
-        return Math.ceilDiv(bytes.length, Long.BYTES);
+        return Math.ceilDiv(this.bytes.length, Long.BYTES);
     }
 
     @Override
-    public ArrayIndexes set(int pos, Index value) {
+    public ArrayIndexes set(final int pos, final Index value) {
         final int idx = pos * Long.BYTES;
-        final byte[] array = bytes.clone();
+        final byte[] array = this.bytes.clone();
         LONG.set(array, idx, value.offset());
         return new ArrayIndexes(array);
     }
 
     @Override
-    public ArrayIndexes add(int pos, Index... values) {
-        int space = values.length * Long.BYTES;
-
+    public ArrayIndexes add(final int pos, final Index... values) {
+        final int space = values.length * Long.BYTES;
         final int idx = pos * Long.BYTES;
-        final int len = bytes.length;
+        final int len = this.bytes.length;
         final int numMoved = len - idx;
-
-        byte[] newElements;
+        final byte[] newElements;
         if (numMoved == 0) {
-            newElements = Arrays.copyOf(bytes, len + space);
+            newElements = Arrays.copyOf(this.bytes, len + space);
         } else {
             newElements = new byte[len + space];
-            System.arraycopy(bytes, 0, newElements, 0, idx);
-            System.arraycopy(bytes, idx,
+            System.arraycopy(this.bytes, 0, newElements, 0, idx);
+            System.arraycopy(this.bytes, idx,
                     newElements, idx + space,
                     numMoved);
         }
@@ -62,39 +60,38 @@ public final class ArrayIndexes implements Indexes {
     }
 
     @Override
-    public Index get(int pos) {
+    public Index get(final int pos) {
         final int idx = pos * Long.BYTES;
-        return new LongIndex((long) LONG.get(bytes, idx));
+        return new LongIndex((long) LONG.get(this.bytes, idx));
     }
 
     @Override
     public ArrayIndexes sub(int from, int to) {
         from *= Long.BYTES;
         to *= Long.BYTES;
-        return new ArrayIndexes(Arrays.copyOfRange(bytes, from, to));
+        return new ArrayIndexes(Arrays.copyOfRange(this.bytes, from, to));
     }
     @Override
     public InputStream bytes() {
-        return new ByteArrayInputStream(bytes);
-    }
-
-    @Override
-    public String toString() {
-        return Arrays.toString(bytes);
+        return new ByteArrayInputStream(this.bytes);
     }
 
     @Override
     public Iterator<Index> iterator() {
-        return Spliterators.iterator(spliterator());
+        return Spliterators.iterator(this.spliterator());
     }
 
     @Override
     public Spliterator<Index> spliterator() {
         return IntStream
                 .iterate(0,
-                        pos -> pos < size(),
+                        pos -> pos < this.size(),
                         pos -> pos + 1)
                 .mapToObj(this::get)
                 .spliterator();
+    }
+    @Override
+    public String toString() {
+        return Arrays.toString(this.bytes);
     }
 }

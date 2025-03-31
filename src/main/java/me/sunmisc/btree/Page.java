@@ -1,8 +1,7 @@
-package mc.sunmisc.tree.io;
+package me.sunmisc.btree;
 
-import mc.sunmisc.tree.io.heap.ArrayIndexes;
-import mc.sunmisc.tree.io.heap.Indexes;
-import mc.sunmisc.tree.io.index.Index;
+import me.sunmisc.btree.heap.Indexes;
+import me.sunmisc.btree.index.Index;
 
 import java.util.Collections;
 import java.util.Iterator;
@@ -20,16 +19,17 @@ public interface Page {
     Indexes keys();
 
     final class UnarySplit implements Split {
-
         private final Index origin;
+        private final Indexes keys;
 
-        public UnarySplit(Index origin) {
+        public UnarySplit(final Index origin, final Indexes keys) {
             this.origin = origin;
+            this.keys = keys;
         }
 
         @Override
-        public Index median() {
-            return null;
+        public Indexes keys() {
+            return this.keys;
         }
 
         @Override
@@ -39,7 +39,7 @@ public interface Page {
 
         @Override
         public long offset() {
-            return origin.offset();
+            return this.origin.offset();
         }
     }
 
@@ -48,7 +48,7 @@ public interface Page {
         private final List<Index> list;
         private final Indexes keys;
 
-        public RebalanceSplit(Index origin, Indexes keys, List<Index> ids) {
+        public RebalanceSplit(final Index origin, final Indexes keys, final List<Index> ids) {
             this.origin = origin;
             this.list = ids;
             this.keys = keys;
@@ -56,29 +56,29 @@ public interface Page {
 
         @Override
         public long offset() {
-            return origin.offset();
+            return this.origin.offset();
         }
 
         @Override
-        public Index median() {
-            int mid = keys.size() >>> 1;
-            return keys.get(mid);
-        }
-
-        @Override
-        public String toString() {
-            return keys + " = " + list;
+        public Indexes keys() {
+            return this.keys;
         }
 
         @Override
         public Iterator<Index> iterator() {
-            return list.iterator();
+            return this.list.iterator();
         }
     }
 
     interface Split extends Iterable<Index>, Index {
 
-        Index median();
+        Indexes keys();
+
+        default Index median() {
+            final Indexes data = this.keys();
+            final int mid = data.size() >>> 1;
+            return this.keys().get(mid);
+        }
     }
 
 }
