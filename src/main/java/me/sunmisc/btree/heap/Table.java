@@ -3,47 +3,76 @@ package me.sunmisc.btree.heap;
 import me.sunmisc.btree.index.Index;
 import me.sunmisc.btree.index.LongIndex;
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
-@Deprecated
-public class Table {
-    private static final String DATA_FILE = "keys.dat";
-    private final AtomicLong ids = new AtomicLong();
+public final class Table {
+    private static final long HEADER = Long.BYTES;
+    private final AtomicLong ids;
+    private final File file;
 
-    public Index allocate(final String value) {
-        final byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        final long offset = this.ids.getAndAdd(bytes.length + Integer.BYTES);
-        try (final RandomAccessFile file = new RandomAccessFile(DATA_FILE, "rw")) {
-            file.seek(offset);
-            file.writeInt(bytes.length);
-            file.write(bytes);
+    public Table() {
+        this(new File("keys.dat"));
+    }
+
+    public Table(final File file) {
+        this.file = file;
+        this.ids = new AtomicLong(tail()
+                .map(Index::offset)
+                .orElse(0L) + HEADER
+        );
+    }
+
+    public Index alloc(final String key, String value) {
+        try (final RandomAccessFile rw = new RandomAccessFile(this.file, "rw")) {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            try (DataOutputStream data = new DataOutputStream(buffer)) {
+                data.writeUTF(key);
+                data.writeUTF(value);
+            }
+            long offset = ids.getAndAdd(buffer.size());
+            rw.seek(offset);
+            rw.write(buffer.toByteArray());
+
+            rw.seek(0);
+            rw.writeLong(offset);
+            return new LongIndex(offset);
         } catch (final IOException e) {
             throw new RuntimeException(e);
         }
-        return new LongIndex(offset);
     }
 
-    public String load(final Index index) {
-        try (final RandomAccessFile file = new RandomAccessFile(DATA_FILE, "r")) {
-            file.seek(index.offset());
-
-            final int len = file.readInt();
-            final byte[] array = new byte[len];
-            file.readFully(array);
-            return new String(array);
+    public String key(final Index index) {
+        try (final RandomAccessFile r = new RandomAccessFile(this.file, "r")) {
+            r.seek(index.offset());
+            return r.readUTF();
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    public Map.Entry<String, String> entry(final Index index) {
+        try (final RandomAccessFile r = new RandomAccessFile(this.file, "r")) {
+            r.seek(index.offset());
+            return Map.entry(r.readUTF(), r.readUTF());
         } catch (final IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void main(final String[] args) {
-        final Table heap = new Table();
-        final Index index1 = heap.allocate("kek");
-        final Index index2 = heap.allocate("govno");
-        System.out.println(heap.load(index1));
-        System.out.println(heap.load(index2));
+    public Optional<Index> tail() {
+        try (final RandomAccessFile file = new RandomAccessFile(this.file, "r")) {
+            file.seek(0);
+            return Optional.of(new LongIndex(file.readLong()));
+        } catch (final IOException ex) {
+            return Optional.empty();
+        }
+    }
+    public void delete() {
+        file.delete();
     }
 }

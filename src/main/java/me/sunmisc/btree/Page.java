@@ -1,84 +1,81 @@
-package me.sunmisc.btree;
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
 
-import me.sunmisc.btree.heap.Indexes;
-import me.sunmisc.btree.index.Index;
+package me.sunmisc.btree;
 
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import me.sunmisc.btree.heap.Indexes;
+import me.sunmisc.btree.index.Index;
 
 public interface Page {
+    Split tryPushOrSplit(String var1, String var2);
 
-    Split tryPushOrSplit(String key, Void value);
-
-    Optional<Boolean> search(String key);
+    Optional<String> search(String var1);
 
     Indexes children();
 
     Indexes keys();
 
-    final class UnarySplit implements Split {
+    void traverse(List<String> var1);
+
+    public static final class UnarySplit implements Split {
         private final Index origin;
         private final Indexes keys;
 
-        public UnarySplit(final Index origin, final Indexes keys) {
+        public UnarySplit(Index origin, Indexes keys) {
             this.origin = origin;
             this.keys = keys;
         }
 
-        @Override
         public Indexes keys() {
             return this.keys;
         }
 
-        @Override
         public Iterator<Index> iterator() {
             return Collections.emptyIterator();
         }
 
-        @Override
         public long offset() {
             return this.origin.offset();
         }
     }
 
-    final class RebalanceSplit implements Split {
+    public static final class RebalanceSplit implements Split {
         private final Index origin;
-        private final List<Index> list;
+        private final List<Index> right;
         private final Indexes keys;
 
-        public RebalanceSplit(final Index origin, final Indexes keys, final List<Index> ids) {
+        public RebalanceSplit(Index origin, Indexes keys, List<Index> right) {
             this.origin = origin;
-            this.list = ids;
+            this.right = right;
             this.keys = keys;
         }
 
-        @Override
         public long offset() {
             return this.origin.offset();
         }
 
-        @Override
         public Indexes keys() {
             return this.keys;
         }
 
-        @Override
         public Iterator<Index> iterator() {
-            return this.list.iterator();
+            return this.right.iterator();
         }
     }
 
-    interface Split extends Iterable<Index>, Index {
-
+    public interface Split extends Iterable<Index>, Index {
         Indexes keys();
 
         default Index median() {
-            final Indexes data = this.keys();
-            final int mid = data.size() >>> 1;
+            Indexes data = this.keys();
+            int mid = data.size() >>> 1;
             return this.keys().get(mid);
         }
     }
-
 }
