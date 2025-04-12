@@ -1,22 +1,19 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package me.sunmisc.btree.cow;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.StreamSupport;
 import me.sunmisc.btree.Page;
 import me.sunmisc.btree.heap.Indexes;
 import me.sunmisc.btree.heap.Nodes;
 import me.sunmisc.btree.heap.Table;
 import me.sunmisc.btree.index.Index;
 
-import static me.sunmisc.btree.cow.Tree.THRESHOLD;
+import java.io.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.stream.StreamSupport;
+
+import static me.sunmisc.btree.cow.FlushTree.THRESHOLD;
 
 public final class InternalPage implements Page {
     private final Nodes nodes;
@@ -24,26 +21,26 @@ public final class InternalPage implements Page {
     private Indexes keys;
     private Indexes children;
 
-    public InternalPage(Table table, Nodes nodes, Indexes data, Indexes children) {
+    public InternalPage(Table table, Nodes nodes, Indexes keys, Indexes children) {
         this.table = table;
         this.nodes = nodes;
-        this.keys = data;
+        this.keys = keys;
         this.children = children;
     }
 
+    @Override
     public Page.Split tryPushOrSplit(String key, String value) {
-        int idx = this.binSearch(key);
+        int idx = Page.binSearch(key, keys, table);
         int index = idx < 0 ? -idx - 1 : idx;
-        Page.Split split = this.nodes
+        final Page.Split split = this.nodes
                 .find(this.children.get(index))
                 .tryPushOrSplit(key, value);
         this.children = this.children.set(index, split);
-        Iterator<Index> rights = split.iterator();
-        if (rights.hasNext()) {
-            Index[] inc = StreamSupport
-                    .stream(split.spliterator(), false)
-                    .toArray(Index[]::new);
-            this.children = this.children.add(index + 1, inc);
+        final Index[] rights = StreamSupport
+                .stream(split.right().spliterator(), false)
+                .toArray(Index[]::new);
+        if (rights.length > 0) {
+            this.children = this.children.add(index + 1, rights);
             this.keys = this.keys.add(index, split.median());
         }
         if (keys.size() < THRESHOLD) {
@@ -54,7 +51,7 @@ public final class InternalPage implements Page {
                                     this.keys,
                                     this.children
                             )
-                    ), this.keys);
+                    ));
         } else {
             return split();
         }
@@ -76,64 +73,46 @@ public final class InternalPage implements Page {
         );
     }
 
-    public Optional<String> search(String key) {
-        int index = this.binSearch(key);
+    @Override
+    public Optional<String> get(String key) {
+        int index = Page.binSearch(key, keys, table);
         index = index >= 0 ? index + 1 : -index - 1;
-        return this.nodes.find(this.children.get(index)).search(key);
+        return this.nodes.find(this.children.get(index)).get(key);
     }
 
-    public Indexes keys() {
-        return this.keys;
+    @Override
+    public Optional<Map.Entry<String, String>> first() {
+        final int n = children.size();
+        return n > 0 ? nodes.find(children.get(0)).first() : Optional.empty();
     }
 
-    public void traverse(List<String> result) {
-        int i;
-        for(i = 0; i < this.keys.size(); ++i) {
-            Page page = this.nodes.find(this.children.get(i));
-            page.traverse(result);
-           // result.add(this.table.key(this.keys.get(i)));
+    @Override
+    public Optional<Map.Entry<String, String>> last() {
+        final int n = children.size() - 1;
+        return n >= 0 ? nodes.find(children.get(n)).last() : Optional.empty();
+    }
+
+    @Override
+    public void forEach(final BiConsumer<String, String> result) {
+        for (final Index child : this.children) {
+            final Page page = this.nodes.find(child);
+            page.forEach(result);
         }
-
-        Page page = this.nodes.find(this.children.get(i));
-        page.traverse(result);
     }
 
-    public Indexes children() {
-        return this.children;
-    }
-
-    private int binSearch(String key) {
-        int i = 0;
-        int xx = Integer.parseInt(key);
-        for (; i < keys.size(); ++i) {
-            Index index = this.keys.get(i);
-            int val = Integer.parseInt(this.table.key(index));
-            if (Objects.equals(xx, val)) {
-                return i;
-            } else if (Integer.parseInt(key) < val) {
-                break;
-            }
+    @Override
+    public InputStream delta() throws IOException {
+        try (final ByteArrayOutputStream out = new ByteArrayOutputStream();
+             final DataOutputStream data = new DataOutputStream(out);
+             final InputStream ks = this.keys.bytes();
+             final InputStream ch = this.children.bytes()) {
+            final byte[] bks = ks.readAllBytes();
+            final byte[] chs = ch.readAllBytes();
+            data.writeInt(bks.length);
+            data.write(bks);
+            data.writeInt(chs.length);
+            data.write(chs);
+            return new ByteArrayInputStream(out.toByteArray());
         }
-        return -(i + 1);
-    }
-    private int binSearch1(String key) {
-        int low = 0;
-        int high = this.keys.size() - 1;
-        while (low <= high) {
-            int mid = low + high >>> 1;
-            String midVal = this.table.key(this.keys.get(mid));
-            int cmp = midVal.compareTo(key);
-            if (cmp < 0) {
-                low = mid + 1;
-            } else {
-                if (cmp == 0) {
-                    return mid;
-                }
-
-                high = mid - 1;
-            }
-        }
-
-        return -(low + 1);
     }
 }

@@ -4,9 +4,6 @@ import me.sunmisc.btree.index.Index;
 import me.sunmisc.btree.index.LongIndex;
 
 import java.io.*;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;

@@ -5,7 +5,11 @@ import me.sunmisc.btree.cow.InternalPage;
 import me.sunmisc.btree.cow.LeafPage;
 import me.sunmisc.btree.index.Index;
 import me.sunmisc.btree.index.LongIndex;
-import java.io.*;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.Optional;
@@ -25,29 +29,20 @@ public final class Nodes {
     public Nodes(File file, final Table keys) {
         this.file = file;
         this.keys = keys;
-        this.ids = new AtomicLong(HEADER); /*new AtomicLong(tail()
+        this.ids = new AtomicLong(tail()
                 .map(Index::offset)
                 .orElse(0L) + HEADER
-        );*/
+        );
     }
 
     public Index alloc(final Page page) {
-        try (final RandomAccessFile file = new RandomAccessFile(this.file, "rw")) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            DataOutputStream data = new DataOutputStream(out);
-            try (final InputStream ks = page.keys().bytes();
-                 final InputStream cs = page.children().bytes()) {
-                final byte[] bks = ks.readAllBytes();
-                final byte[] bcs = cs.readAllBytes();
-                data.writeInt(bks.length);
-                data.write(bks);
-                data.writeInt(bcs.length);
-                data.write(bcs);
-            }
+        try (final RandomAccessFile file = new RandomAccessFile(this.file, "rw");
+             final InputStream body = page.delta()) {
 
-            final long offset = this.ids.getAndAdd(out.size());
+            byte[] bytes = body.readAllBytes();
+            final long offset = this.ids.getAndAdd(bytes.length);
             file.seek(offset);
-            file.write(out.toByteArray());
+            file.write(bytes);
 
             file.seek(0);
             file.writeLong(offset);

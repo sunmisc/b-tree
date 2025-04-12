@@ -6,8 +6,6 @@ import java.io.InputStream;
 
 public interface Indexes extends Iterable<Index> {
 
-    Indexes EMPTY = new ArrayIndexes();
-
     int size();
 
     Index get(int pos);

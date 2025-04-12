@@ -1,15 +1,4 @@
-//
-// Source code recreated from a .class file by IntelliJ IDEA
-// (powered by FernFlower decompiler)
-//
-
 package me.sunmisc.btree.cow;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.StreamSupport;
 
 import me.sunmisc.btree.Page;
 import me.sunmisc.btree.heap.Indexes;
@@ -17,108 +6,95 @@ import me.sunmisc.btree.heap.Nodes;
 import me.sunmisc.btree.heap.Table;
 import me.sunmisc.btree.index.Index;
 
-import static me.sunmisc.btree.cow.Tree.THRESHOLD;
+import java.io.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+
+import static me.sunmisc.btree.cow.FlushTree.THRESHOLD;
 
 public final class LeafPage implements Page {
     private final Table table;
     private final Nodes nodes;
-    private Indexes data;
+    private Indexes keys;
 
-    public LeafPage(Indexes data, Table table, Nodes nodes) {
+    public LeafPage(Indexes keys, Table table, Nodes nodes) {
         this.table = table;
-        this.data = data;
+        this.keys = keys;
         this.nodes = nodes;
     }
-
+    @Override
     public Page.Split tryPushOrSplit(String key, String value) {
         Index pos = this.table.alloc(key, value);
-        int index = this.binSearch(key);
-        data = index >= 0
-                ? this.data.set(index, pos)
-                : this.data.add(-index - 1, pos);
-        return data.size() < THRESHOLD
+        int index = Page.binSearch(key, keys, table);
+        keys = index >= 0
+                ? this.keys.set(index, pos)
+                : this.keys.add(-index - 1, pos);
+        return keys.size() < THRESHOLD
                 ? new Page.UnarySplit(this.nodes.alloc(
-                        new LeafPage(data, this.table, this.nodes)), this.data)
+                        new LeafPage(keys, this.table, this.nodes)))
                 : split();
     }
 
     public Page.Split split() {
-        int size = this.data.size();
+        int size = this.keys.size();
         int mid = size >>> 1;
         LeafPage left = new LeafPage(
-                this.data.sub(0, mid),
+                this.keys.sub(0, mid),
                 this.table, this.nodes);
         LeafPage right = new LeafPage(
-                this.data.sub(mid, this.data.size()),
+                this.keys.sub(mid, this.keys.size()),
                 this.table, this.nodes);
         return new Page.RebalanceSplit(
                 this.nodes.alloc(left),
-                this.data,
+                this.keys,
                 List.of(this.nodes.alloc(right))
         );
     }
-
-    public Optional<String> search(String key) {
-        int index = this.binSearch(key);
+    @Override
+    public Optional<String> get(String key) {
+        int index = Page.binSearch(key, keys, table);
         if (index < 0) {
             return Optional.empty();
         } else {
-            return Optional.of(this.data.get(index))
+            return Optional.of(this.keys.get(index))
                     .map(table::entry)
                     .map(Map.Entry::getValue);
         }
 
     }
 
-    public Indexes children() {
-        return Indexes.EMPTY;
+    @Override
+    public Optional<Map.Entry<String, String>> first() {
+        final int n = keys.size();
+        return n > 0 ? Optional.of(table.entry(keys.get(0))) : Optional.empty();
     }
 
-    public Indexes keys() {
-        return this.data;
+    @Override
+    public Optional<Map.Entry<String, String>> last() {
+        final int n = keys.size() - 1;
+        return n >= 0 ? Optional.of(table.entry(keys.get(n))) : Optional.empty();
     }
 
-    public void traverse(List<String> result) {
-        for(int i = 0; i < this.data.size(); ++i) {
-            result.add(this.table.key(this.data.get(i)));
+    @Override
+    public InputStream delta() throws IOException {
+        try (final ByteArrayOutputStream out = new ByteArrayOutputStream();
+             final DataOutputStream data = new DataOutputStream(out);
+             final InputStream ks = this.keys.bytes()) {
+            final byte[] bks = ks.readAllBytes();
+            data.writeInt(bks.length);
+            data.write(bks);
+            data.writeInt(0);
+            return new ByteArrayInputStream(out.toByteArray());
         }
-
-    }
-    private int binSearch(String key) {
-        int i = 0;
-        int xx = Integer.parseInt(key);
-        for (; i < data.size(); ++i) {
-            Index index = this.data.get(i);
-            int val = Integer.parseInt(this.table.key(index));
-            if (Objects.equals(xx, val)) {
-                return i;
-            } else if (Integer.parseInt(key) < val) {
-                break;
-            }
-        }
-        return -(i + 1);
     }
 
-    private int binSearch1(String key) {
-        int low = 0;
-        int high = this.data.size() - 1;
-
-        while(low <= high) {
-            int mid = low + high >>> 1;
-            Index index = this.data.get(mid);
-            String midVal = this.table.key(index);
-            int cmp = midVal.compareTo(key);
-            if (cmp < 0) {
-                low = mid + 1;
-            } else {
-                if (cmp <= 0) {
-                    return mid;
-                }
-
-                high = mid - 1;
-            }
+    @Override
+    public void forEach(final BiConsumer<String, String> action) {
+        for (final Index x : this.keys) {
+            final Map.Entry<String, String> e = this.table.entry(x);
+            action.accept(e.getKey(), e.getValue());
         }
-
-        return -(low + 1);
     }
 }

@@ -8,9 +8,14 @@ import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.stream.IntStream;
 
+@Deprecated
+// use DataOutputStream
 public final class ArrayIndexes implements Indexes {
     private static final byte[] EMPTY = new byte[0];
     private static final VarHandle LONG = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
