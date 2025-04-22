@@ -13,9 +13,8 @@ import java.util.Iterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
-@Deprecated
-// use DataOutputStream
 public final class ArrayIndexes implements Indexes {
     private static final byte[] EMPTY = new byte[0];
     private static final VarHandle LONG = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.BIG_ENDIAN);
@@ -65,6 +64,39 @@ public final class ArrayIndexes implements Indexes {
     }
 
     @Override
+    public Indexes addAll(Indexes index) {
+        Indexes indexes = this;
+        for (Index ix : index) {
+            indexes = indexes.add(0, ix);
+        }
+        return indexes;
+    }
+
+    @Override
+    public Indexes add(int pos, Indexes index) {
+        Index[] indices = StreamSupport
+                .stream(index.spliterator(), false)
+                .toArray(Index[]::new);
+        return this.add(0, indices);
+    }
+
+    @Override
+    public Indexes remove(int pos) {
+        final int idx = pos * Long.BYTES;
+        final int len = this.bytes.length;
+        final int numMoved = len - idx - Long.BYTES;
+        byte[] newElements;
+        if (numMoved == 0) {
+            newElements = Arrays.copyOf(this.bytes, len - Long.BYTES);
+        } else {
+            newElements = new byte[len - Long.BYTES];
+            System.arraycopy(this.bytes, 0, newElements, 0, idx);
+            System.arraycopy(this.bytes, idx + Long.BYTES, newElements, idx, numMoved);
+        }
+        return new ArrayIndexes(newElements);
+    }
+
+    @Override
     public Index get(final int pos) {
         final int idx = pos * Long.BYTES;
         return new LongIndex((long) LONG.get(this.bytes, idx));
@@ -95,6 +127,7 @@ public final class ArrayIndexes implements Indexes {
                 .mapToObj(this::get)
                 .spliterator();
     }
+
     @Override
     public String toString() {
         return Arrays.toString(this.bytes);

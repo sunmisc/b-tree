@@ -1,15 +1,27 @@
 package me.sunmisc.btree;
 
-import me.sunmisc.btree.heap.Data;
 import me.sunmisc.btree.heap.Indexes;
 import me.sunmisc.btree.heap.Table;
+import me.sunmisc.btree.heap.Values;
 import me.sunmisc.btree.index.Index;
 
 import java.util.List;
 import java.util.Objects;
 
-public interface Page extends Data, Navigable {
+
+public interface Page extends Navigable {
     Split tryPushOrSplit(String key, String value);
+
+    @Deprecated
+    Indexes keys();
+
+    @Deprecated
+    Indexes children();
+
+
+    default boolean isLeaf() {
+        return children().size() == 0;
+    }
 
     final class UnarySplit implements Split {
         private final Index origin;
@@ -68,27 +80,14 @@ public interface Page extends Data, Navigable {
         Index median();
     }
 
-    static int binSearch(String key, Indexes keys, Table table) {
-        int i = 0;
-        int xx = Integer.parseInt(key);
-        for (; i < keys.size(); ++i) {
-            Index index = keys.get(i);
-            int val = Integer.parseInt(table.key(index));
-            if (Objects.equals(xx, val)) {
-                return i;
-            } else if (Integer.parseInt(key) < val) {
-                break;
-            }
-        }
-        return -(i + 1);
-    }
 
-    static int binSearch1(String key, Indexes keys, Table table) {
+    static int binSearch(String key, Indexes keys, Table table) {
+        Values values = table.values();
         int low = 0;
         int high = keys.size() - 1;
         while (low <= high) {
             final int mid = low + high >>> 1;
-            final String midVal = table.key(keys.get(mid));
+            final String midVal = values.key(keys.get(mid));
             final int cmp = midVal.compareTo(key);
             if (cmp < 0) {
                 low = mid + 1;

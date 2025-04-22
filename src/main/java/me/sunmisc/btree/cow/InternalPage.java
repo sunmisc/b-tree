@@ -1,38 +1,40 @@
 package me.sunmisc.btree.cow;
 
 import me.sunmisc.btree.Page;
+import me.sunmisc.btree.heap.ArrayIndexes;
 import me.sunmisc.btree.heap.Indexes;
 import me.sunmisc.btree.heap.Nodes;
 import me.sunmisc.btree.heap.Table;
+import me.sunmisc.btree.imm.Constants;
+import me.sunmisc.btree.imm.Leaf;
 import me.sunmisc.btree.index.Index;
 
-import java.io.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.StreamSupport;
 
-import static me.sunmisc.btree.cow.FlushTree.THRESHOLD;
+import static me.sunmisc.btree.cow.ImTree.THRESHOLD;
 
 public final class InternalPage implements Page {
-    private final Nodes nodes;
     private final Table table;
+    // todo: final
     private Indexes keys;
     private Indexes children;
 
-    public InternalPage(Table table, Nodes nodes, Indexes keys, Indexes children) {
+    public InternalPage(Table table, Indexes keys, Indexes children) {
         this.table = table;
-        this.nodes = nodes;
         this.keys = keys;
         this.children = children;
     }
 
     @Override
     public Page.Split tryPushOrSplit(String key, String value) {
+        Nodes nodes = table.nodes();
         int idx = Page.binSearch(key, keys, table);
         int index = idx < 0 ? -idx - 1 : idx;
-        final Page.Split split = this.nodes
+        final Page.Split split = nodes
                 .find(this.children.get(index))
                 .tryPushOrSplit(key, value);
         this.children = this.children.set(index, split);
@@ -45,9 +47,8 @@ public final class InternalPage implements Page {
         }
         if (keys.size() < THRESHOLD) {
             return new Page.UnarySplit(
-                    this.nodes.alloc(
-                            new InternalPage(this.table,
-                                    this.nodes,
+                    nodes.alloc(
+                            new InternalPage(table,
                                     this.keys,
                                     this.children
                             )
@@ -57,62 +58,68 @@ public final class InternalPage implements Page {
         }
     }
 
+    @Override
+    public Indexes keys() {
+        return keys;
+    }
+
+    @Override
+    public Indexes children() {
+        return children;
+    }
+
     private Page.Split split() {
+        Nodes nodes = table.nodes();
+
         int mid = this.keys.size() >>> 1;
-        Page left = new InternalPage(this.table, this.nodes,
+        Page left = new InternalPage(table,
                 this.keys.sub(0, mid),
                 this.children.sub(0, mid + 1));
-        Page right = new InternalPage(this.table, this.nodes,
+        Page right = new InternalPage(table,
                 this.keys.sub(mid + 1, this.keys.size()),
                 this.children.sub(mid + 1, this.children.size())
         );
         return new Page.RebalanceSplit(
-                this.nodes.alloc(left),
+                nodes.alloc(left),
                 this.keys,
-                List.of(this.nodes.alloc(right))
+                List.of(nodes.alloc(right))
         );
     }
 
+
     @Override
     public Optional<String> get(String key) {
+        Nodes nodes = table.nodes();
         int index = Page.binSearch(key, keys, table);
         index = index >= 0 ? index + 1 : -index - 1;
-        return this.nodes.find(this.children.get(index)).get(key);
+        return nodes.find(this.children.get(index)).get(key);
     }
 
     @Override
     public Optional<Map.Entry<String, String>> first() {
         final int n = children.size();
+        Nodes nodes = table.nodes();
         return n > 0 ? nodes.find(children.get(0)).first() : Optional.empty();
     }
 
     @Override
     public Optional<Map.Entry<String, String>> last() {
         final int n = children.size() - 1;
+        Nodes nodes = table.nodes();
         return n >= 0 ? nodes.find(children.get(n)).last() : Optional.empty();
     }
 
     @Override
     public void forEach(final BiConsumer<String, String> result) {
+        Nodes nodes = table.nodes();
         for (final Index child : this.children) {
-            final Page page = this.nodes.find(child);
+            final Page page = nodes.find(child);
             page.forEach(result);
         }
     }
 
     @Override
-    public InputStream delta() throws IOException {
-        try (final ByteArrayOutputStream out = new ByteArrayOutputStream();
-             final DataOutputStream data = new DataOutputStream(out);
-             final InputStream ks = this.keys.bytes();
-             final InputStream ch = this.children.bytes()) {
-            final byte[] bks = ks.readAllBytes();
-            final byte[] chs = ch.readAllBytes();
-            data.writeInt(bks.length);
-            data.write(bks);
-            data.writeInt(chs.length);
-            data.write(chs);
-            return new ByteArrayInputStream(out.toByteArray());
-        }
+    public boolean isLeaf() {
+        return false;
     }
 }
