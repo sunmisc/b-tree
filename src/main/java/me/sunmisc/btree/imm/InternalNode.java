@@ -1,9 +1,5 @@
 package me.sunmisc.btree.imm;
 
-import me.sunmisc.btree.Page;
-import me.sunmisc.btree.cow.InternalPage;
-import me.sunmisc.btree.heap.Nodes;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +10,7 @@ public class InternalNode extends Node {
     public static final String STEAL_KEY_FROM_RIGHT = "STEAL_KEY_FROM_RIGHT";
     public static final String MERGE = "MERGE";
 
-    public InternalNode(int order, List<String> keys, List<Node> children) {
+    public InternalNode(int order, List<Long> keys, List<Node> children) {
         super(order, keys, children);
     }
 
@@ -29,14 +25,14 @@ public class InternalNode extends Node {
     }
 
     @Override
-    protected Node createNewNode(int order, List<String> keys, List<Node> children) {
+    protected Node createNewNode(int order, List<Long> keys, List<Node> children) {
         return new InternalNode(order, keys, children);
     }
 
     @Override
     public Node merge(Node otherNode) {
-        List<String> toConcat = Utils.unshift(otherNode.smallestKey(), otherNode.keys);
-        List<String> newKeys = new ArrayList<>(keys);
+        List<Long> toConcat = Utils.unshift(otherNode.smallestKey(), otherNode.keys);
+        List<Long> newKeys = new ArrayList<>(keys);
         newKeys.addAll(toConcat);
         List<Node> newChildren = new ArrayList<>(children);
         newChildren.addAll(otherNode.children);
@@ -51,7 +47,7 @@ public class InternalNode extends Node {
         boolean hasRightSibling = childIdx + 1 < children.size();
         boolean hasLeftSibling = childIdx - 1 >= 0;
 
-        boolean isLeaf = newChild instanceof Leaf;
+        boolean isLeaf = newChild instanceof LeafNode;
 
         Node nullSibling = new EmptyNode();
         Node rightSibling = hasRightSibling ? children.get(childIdx + 1) : nullSibling;
@@ -78,7 +74,7 @@ public class InternalNode extends Node {
     }
 
     @Override
-    public Node delete(boolean[] didChange, String key) {
+    public Node delete(boolean[] didChange, Long key) {
         int childIdx = Utils.binSearch(keys, key);
         int index;
         if (childIdx >= 0) {
@@ -124,14 +120,14 @@ public class InternalNode extends Node {
 
         InternalNode withReplacedChildren = withReplacedChildren(leftNodeIdx, List.of(newLeftNode, newRightNode));
         int keyIdxToReplace = leftNodeIdx;
-        String newKey = newRightNode.smallestKey();
+        Long newKey = newRightNode.smallestKey();
         withReplacedChildren.keys = Utils.set(keyIdxToReplace, newKey, withReplacedChildren.keys);
         return withReplacedChildren;
     }
 
     public InternalNode withMergedChildren(int leftChildIdx, Node leftNode, Node rightNode) {
         Node mergedChild = leftNode.merge(rightNode);
-        List<String> newKeys = Utils.withoutIdx(leftChildIdx, keys);
+        List<Long> newKeys = Utils.withoutIdx(leftChildIdx, keys);
 
         boolean areLeftmostNodes = leftChildIdx == 0;
         if (!areLeftmostNodes) {
@@ -147,7 +143,7 @@ public class InternalNode extends Node {
 
 
     public List<Node> stealFirstKeyFrom(Node rightSibling) {
-        List<String> newKeys = new ArrayList<>(keys);
+        List<Long> newKeys = new ArrayList<>(keys);
         newKeys.add(rightSibling.smallestKey());
         List<Node> newChildren = new ArrayList<>(children);
         newChildren.add(rightSibling.children.get(0));
@@ -156,7 +152,7 @@ public class InternalNode extends Node {
 
     public List<Node> giveLastKeyTo(Node rightSibling) {
         Node stolenValue = children.getLast();
-        List<String> newSiblingKeys = Utils.unshift(rightSibling.smallestKey(), rightSibling.keys);
+        List<Long> newSiblingKeys = Utils.unshift(rightSibling.smallestKey(), rightSibling.keys);
         List<Node> newSiblingChildren = Utils.unshift(stolenValue, rightSibling.children);
         InternalNode newSibling = new InternalNode(order, newSiblingKeys, newSiblingChildren);
         return List.of(this.init(), newSibling);
@@ -171,13 +167,13 @@ public class InternalNode extends Node {
     }
 
     @Override
-    public String smallestKey() {
+    public Long smallestKey() {
         return children.getFirst().smallestKey();
     }
 
     private List<Object> split() {
         int mid = keys.size() >>> 1;
-        String midVal = keys.get(mid);
+        Long midVal = keys.get(mid);
         InternalNode left = new InternalNode(order,
                 this.keys.subList(0, mid),
                 this.children.subList(0, mid + 1));
@@ -189,18 +185,18 @@ public class InternalNode extends Node {
     }
 
 
-    public InternalNode withSplitChild(String newKey, Node splitChild, Node newChild) {
+    public InternalNode withSplitChild(Long newKey, Node splitChild, Node newChild) {
         int childIdx = Utils.binSearch(keys, newKey);
         int index = childIdx < 0 ? -childIdx - 1 : childIdx;
 
-        List<String> newKeys = Utils.append(index, newKey, keys);
+        List<Long> newKeys = Utils.append(index, newKey, keys);
         List<Node> newChildren = Utils.append(index + 1, newChild, children);
         newChildren.set(index, splitChild);
         return new InternalNode(order, newKeys, newChildren);
     }
 
     @Override
-    public Node insert(boolean[] didChange, String key, String value) {
+    public Node insert(boolean[] didChange, Long key, String value) {
         int childIdx = Utils.binSearch(keys, key);
         int index = childIdx < 0 ? -childIdx - 1 : childIdx;
 
@@ -211,9 +207,8 @@ public class InternalNode extends Node {
             return this;
         }
 
-        if (newChild instanceof SplitResult) {
-            SplitResult splitArr = (SplitResult) newChild;
-            String medianKey = splitArr.medianKey;
+        if (newChild instanceof SplitResult splitArr) {
+            Long medianKey = splitArr.medianKey;
             Node splitChild = splitArr.leftNode;
             Node _newChild = splitArr.rightNode;
 
@@ -225,7 +220,7 @@ public class InternalNode extends Node {
     }
 
     @Override
-    public String search(String key) {
+    public String search(Long key) {
         int index = Utils.binSearch(keys, key);
         index = index >= 0 ? index + 1 : -index - 1;
 

@@ -1,40 +1,43 @@
 package me.sunmisc.btree.imm;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.IntStream;
 
 public final class Utils {
 
-    public static int binSearch(List<String> keys, String key) {
-        return Collections.binarySearch(keys, key);
+    public static <T extends Comparable<T>> int binSearch(List<T> keys, T key) {
+        //return Collections.binarySearch(keys, key, String::compareTo);
+         return Collections.binarySearch(keys, key);
     }
 
-    public static List<String> append(int idx, String value, List<String> list) {
-        List<String> result = new ArrayList<>(list);
+    public static void main(String[] args) {
+        List<String> list = IntStream
+                .of(1000, 155, 155, 241, 241, 379, 379, 379, 465, 465, 551, 551, 728, 728, 814, 814, 900, 900)
+                .mapToObj(e -> e +"")
+                .sorted()
+                .distinct()
+                .toList();
+        System.out.println(list);
+        for (String s : list) {
+            int index = binSearch(list, s);
+            System.out.println(s+" "+index);
+        }
+    }
+
+    public static <T> List<T> append(int idx, T value, List<T> list) {
+        List<T> result = new ArrayList<>(list);
         result.add(idx, value);
         return result;
     }
 
-    public static List<Node> append(int idx, Node value, List<Node> list) {
-        List<Node> result = new ArrayList<>(list);
-        result.add(idx, value);
-        return result;
-    }
-
-    public static List<String> set(int idx, String value, List<String> list) {
-        List<String> result = new ArrayList<>(list);
-        result.set(idx, value);
-        return result;
-    }
-    public static List<Node> set(int idx, Node value, List<Node> list) {
-        List<Node> result = new ArrayList<>(list);
+    public static <T> List<T> set(int idx, T value, List<T> list) {
+        List<T> result = new ArrayList<>(list);
         result.set(idx, value);
         return result;
     }
 
-    public static List<String> withoutIdx(int idx, List<String> list) {
-        List<String> result = new ArrayList<>(list);
+    public static <T> List<T> withoutIdx(int idx, List<T> list) {
+        List<T> result = new ArrayList<>(list);
         if (result.isEmpty()) {
             return result;
         }

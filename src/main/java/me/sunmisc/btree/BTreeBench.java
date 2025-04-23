@@ -1,22 +1,15 @@
 package me.sunmisc.btree;
 
-
 import me.sunmisc.btree.imm.BTree;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-
-import java.io.IOException;
-import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-@State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 8, time = 1)
@@ -32,37 +25,59 @@ public class BTreeBench {
                 .build();
         new Runner(opt).run();
     }
-    @Param({"10", "10000", "1000000"})
-    private int size;
-    private BTree bTree;
-    private Map<String, String> set;
+    private static final int SIZE = 100_000;
 
-    @Setup
-    public void prepare() {
-        bTree = new BTree();
-        set = new TreeMap<>();
-        for (int i = 0; i < size; ++i) {
-            bTree.insert(i + "", i + "");
-            set.put(i+"", i+"");
+    @State(Scope.Thread)
+    public static class RedBlackTreeState {
+        TreeMap<String, String> map;
+
+        @Setup
+        public void prepare() {
+            map = new TreeMap<>();
+            for (int i = 0; i < SIZE; ++i) {
+                map.put(i+"", i+"");
+            }
         }
-        for (int i = 0; i < size; i += 3) {
-            set.remove(i + "");
-            bTree.delete(i + "");
+    }
 
-            set.put(i + 1+ "", i + 1 + "");
-            bTree.insert(i + 1+ "", i + 1 + "");
+    @State(Scope.Thread)
+    public static class BTreeState {
+        BTree bTree;
+
+        @Setup
+        public void prepare() {
+            bTree = new BTree();
+            for (long i = 0; i < SIZE; ++i) {
+                bTree.insert(i, i+"");
+            }
         }
+    }
 
+
+    @Benchmark
+    public String readB(BTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        return state.bTree.search(r);
+    }
+    @Benchmark
+    public String readRb(RedBlackTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        return state.map.get(r+"");
     }
 
     @Benchmark
-    public String readBtree() {
-        int r = ThreadLocalRandom.current().nextInt(size);
-        return bTree.search(r+"");
+    public String putAndDeleteRb(RedBlackTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        state.map.put(r+"", r+"");
+        state.map.pollFirstEntry();
+        return r+"";
     }
+
     @Benchmark
-    public String readRedBlack() {
-        int r = ThreadLocalRandom.current().nextInt(size);
-        return set.get(r+"");
+    public String putAndDeleteB(BTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        state.bTree.insert(r, r+"");
+        state.bTree.delete(state.bTree.getRoot().smallestKey());
+        return r+"";
     }
 }
