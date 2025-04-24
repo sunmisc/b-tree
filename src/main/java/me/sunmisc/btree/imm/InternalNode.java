@@ -1,5 +1,7 @@
 package me.sunmisc.btree.imm;
 
+import me.sunmisc.btree.LearnedModel;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,9 +12,11 @@ public class InternalNode extends Node {
     public static final String STEAL_KEY_FROM_RIGHT = "STEAL_KEY_FROM_RIGHT";
     public static final String MERGE = "MERGE";
 
-    public InternalNode(int order, List<Long> keys, List<Node> children) {
+    public InternalNode(int order, List<Long> keys,
+                        List<Node> children) {
         super(order, keys, children);
     }
+
 
     @Override
     public int getMinChildren() {
@@ -75,7 +79,7 @@ public class InternalNode extends Node {
 
     @Override
     public Node delete(boolean[] didChange, Long key) {
-        int childIdx = Utils.binSearch(keys, key);
+        int childIdx = LearnedModel.binSearch(keys, key);
         int index;
         if (childIdx >= 0) {
             // Если ключ найден в текущем узле, идём в правый дочерний узел
@@ -186,7 +190,7 @@ public class InternalNode extends Node {
 
 
     public InternalNode withSplitChild(Long newKey, Node splitChild, Node newChild) {
-        int childIdx = Utils.binSearch(keys, newKey);
+        int childIdx = LearnedModel.binSearch(keys, newKey);
         int index = childIdx < 0 ? -childIdx - 1 : childIdx;
 
         List<Long> newKeys = Utils.append(index, newKey, keys);
@@ -197,7 +201,7 @@ public class InternalNode extends Node {
 
     @Override
     public Node insert(boolean[] didChange, Long key, String value) {
-        int childIdx = Utils.binSearch(keys, key);
+        int childIdx = LearnedModel.binSearch(keys, key);
         int index = childIdx < 0 ? -childIdx - 1 : childIdx;
 
         Node child = children.get(index);
@@ -213,7 +217,8 @@ public class InternalNode extends Node {
             Node _newChild = splitArr.rightNode;
 
             InternalNode withSplitChild = withSplitChild(medianKey, splitChild, _newChild);
-            return withSplitChild.shouldSplit() ? new SplitResult(withSplitChild.split()) : withSplitChild;
+            return withSplitChild.shouldSplit() ?
+                    new SplitResult(withSplitChild.split()) : withSplitChild;
         }
 
         return withReplacedChildren(index, List.of(newChild));
@@ -221,7 +226,7 @@ public class InternalNode extends Node {
 
     @Override
     public String search(Long key) {
-        int index = Utils.binSearch(keys, key);
+        int index = LearnedModel.binSearch(keys, key);
         index = index >= 0 ? index + 1 : -index - 1;
 
         return children.get(index).search(key);

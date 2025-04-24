@@ -25,17 +25,18 @@ public class BTreeBench {
                 .build();
         new Runner(opt).run();
     }
-    private static final int SIZE = 100_000;
+    private static final int SIZE = 1_000_000;
 
     @State(Scope.Thread)
     public static class RedBlackTreeState {
-        TreeMap<String, String> map;
+        TreeMap<Long, String> map;
 
         @Setup
         public void prepare() {
             map = new TreeMap<>();
-            for (int i = 0; i < SIZE; ++i) {
-                map.put(i+"", i+"");
+            for (int i = 1; i < SIZE; ++i) {
+                long r = ThreadLocalRandom.current().nextInt(i);
+                map.put(r, r+"");
             }
         }
     }
@@ -43,12 +44,16 @@ public class BTreeBench {
     @State(Scope.Thread)
     public static class BTreeState {
         BTree bTree;
+        @Param({"true", "false"})
+        private boolean learned;
 
         @Setup
         public void prepare() {
             bTree = new BTree();
-            for (long i = 0; i < SIZE; ++i) {
-                bTree.insert(i, i+"");
+            LearnedModel.learned = learned;
+            for (int i = 1; i < SIZE; ++i) {
+                long r = ThreadLocalRandom.current().nextInt( i);
+                bTree.insert(r, r+"");
             }
         }
     }
@@ -59,25 +64,12 @@ public class BTreeBench {
         long r = ThreadLocalRandom.current().nextInt(SIZE);
         return state.bTree.search(r);
     }
-    @Benchmark
-    public String readRb(RedBlackTreeState state) {
-        long r = ThreadLocalRandom.current().nextInt(SIZE);
-        return state.map.get(r+"");
-    }
-
-    @Benchmark
-    public String putAndDeleteRb(RedBlackTreeState state) {
-        long r = ThreadLocalRandom.current().nextInt(SIZE);
-        state.map.put(r+"", r+"");
-        state.map.pollFirstEntry();
-        return r+"";
-    }
 
     @Benchmark
     public String putAndDeleteB(BTreeState state) {
         long r = ThreadLocalRandom.current().nextInt(SIZE);
         state.bTree.insert(r, r+"");
-        state.bTree.delete(state.bTree.getRoot().smallestKey());
+        state.bTree.delete(r);
         return r+"";
     }
 }

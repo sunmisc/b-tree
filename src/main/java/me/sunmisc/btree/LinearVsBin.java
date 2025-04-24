@@ -8,14 +8,14 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations = 1, time = 1)
-@Measurement(iterations = 8, time = 1)
+@Measurement(iterations = 6, time = 1)
 @Fork(1)
 @Threads(1)
 @BenchmarkMode({Mode.Throughput})
@@ -29,30 +29,32 @@ public class LinearVsBin {
         new Runner(opt).run();
     }
 
-    private List<Integer> keys;
+    private static final Random random = new Random(12822);
+    @Param({"1", "2", "64", "1024", "4096"})
+    private int spread;
+    private List<Long> keys;
     private LearnedModel linearModel;
 
     @Setup
     public void prepare() {
- /*       keys = ThreadLocalRandom.current().ints(100_000,
-                0, 100_000).boxed().toList();*/
-        keys = IntStream.range(0, 100_000)
-                .map(e -> e +
-                        ThreadLocalRandom.current().nextInt(0, 120))
+        keys = LongStream.range(0, 256)
+                .map(e -> e + random.nextInt(0, spread))
                 .sorted()
                 .distinct()
-                .boxed().toList();
+                .boxed()
+                .toList();
         linearModel = LearnedModel.retrain(keys);
     }
 
     @Benchmark
     public int linearSearch() {
         int r = ThreadLocalRandom.current().nextInt(keys.size());
-        return linearModel.search(keys, r);
+        return linearModel.searchEq(keys, r);
     }
+
     @Benchmark
     public int binSearch() {
-        int r = ThreadLocalRandom.current().nextInt(keys.size());
-        return Collections.binarySearch(keys, r);
+        long r = ThreadLocalRandom.current().nextInt(keys.size());
+        return LearnedModel.binSearch(keys, r);
     }
 }
