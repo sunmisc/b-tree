@@ -29,14 +29,14 @@ public class BTreeBench {
 
     @State(Scope.Thread)
     public static class RedBlackTreeState {
-        TreeMap<Long, String> map;
+        TreeMap<String, String> map;
 
         @Setup
         public void prepare() {
             map = new TreeMap<>();
             for (int i = 1; i < SIZE; ++i) {
                 long r = ThreadLocalRandom.current().nextInt(i);
-                map.put(r, r+"");
+                map.put(r+"", r+"");
             }
         }
     }
@@ -44,16 +44,14 @@ public class BTreeBench {
     @State(Scope.Thread)
     public static class BTreeState {
         BTree bTree;
-        @Param({"true", "false"})
-        private boolean learned;
+
 
         @Setup
         public void prepare() {
             bTree = new BTree();
-            LearnedModel.learned = learned;
             for (int i = 1; i < SIZE; ++i) {
                 long r = ThreadLocalRandom.current().nextInt( i);
-                bTree.insert(r, r+"");
+                bTree.insert(r+"", r+"");
             }
         }
     }
@@ -62,14 +60,31 @@ public class BTreeBench {
     @Benchmark
     public String readB(BTreeState state) {
         long r = ThreadLocalRandom.current().nextInt(SIZE);
-        return state.bTree.search(r);
+        return state.bTree.search(String.valueOf(r));
     }
 
     @Benchmark
     public String putAndDeleteB(BTreeState state) {
         long r = ThreadLocalRandom.current().nextInt(SIZE);
-        state.bTree.insert(r, r+"");
-        state.bTree.delete(r);
+        state.bTree.insert(r+"", r+"");
+        for (int i = 0; i < 1; ++i) {
+            state.bTree.delete(state.bTree.firstKey());
+        }
+        return r+"";
+    }
+    @Benchmark
+    public String readRB(RedBlackTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        return state.map.get(String.valueOf(r));
+    }
+
+    @Benchmark
+    public String putAndDeleteRB(RedBlackTreeState state) {
+        long r = ThreadLocalRandom.current().nextInt(SIZE);
+        state.map.put(r+"", r+"");
+        for (int i = 0; i < 1; ++i) {
+            state.map.pollFirstEntry();
+        }
         return r+"";
     }
 }

@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Node {
-    protected List<Long> keys;
+    protected List<String> keys;
     protected List<Node> children;
     protected int order;
 
-    public Node(int order, List<Long> keys, List<Node> children) {
+    public Node(int order, List<String> keys, List<Node> children) {
         this.order = order;
         this.keys = keys != null ? new ArrayList<>(keys) : new ArrayList<>();
         this.children = children != null ? new ArrayList<>(children) : new ArrayList<>();
@@ -47,13 +47,13 @@ public abstract class Node {
     public abstract List<Node> stealFirstKeyFrom(Node rightSibling);
     public abstract List<Node> giveLastKeyTo(Node rightSibling);
 
-    protected abstract Node createNewNode(int order, List<Long> keys, List<Node> children);
+    protected abstract Node createNewNode(int order, List<String> keys, List<Node> children);
 
-    public abstract Node insert(boolean[] didChange, Long key, String value);
+    public abstract Node insert(boolean[] didChange, String key, String value);
 
-    public abstract Node delete(boolean[] didChange, Long key);
+    public abstract Node delete(boolean[] didChange, String key);
 
-    public abstract Long smallestKey();
+    public abstract String smallestKey();
 
-    public abstract String search(Long key);
+    public abstract String search(String key);
 }

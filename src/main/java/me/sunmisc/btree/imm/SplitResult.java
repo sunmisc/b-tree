@@ -4,13 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SplitResult extends Node {
-    public final Long medianKey;
+    public final String medianKey;
     public final Node leftNode;
     public final Node rightNode;
 
     public SplitResult(List<Object> splitData) {
         super(0, new ArrayList<>(), new ArrayList<>());
-        this.medianKey = (Long) splitData.get(0);
+        this.medianKey = (String) splitData.get(0);
         this.leftNode = (Node) splitData.get(1);
         this.rightNode = (Node) splitData.get(2);
     }
@@ -31,27 +31,27 @@ public class SplitResult extends Node {
     }
 
     @Override
-    protected Node createNewNode(int order, List<Long> keys, List<Node> children) {
+    protected Node createNewNode(int order, List<String> keys, List<Node> children) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Node insert(boolean[] didChange, Long key, String value) {
+    public Node insert(boolean[] didChange, String key, String value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Node delete(boolean[] didChange, Long key) {
+    public Node delete(boolean[] didChange, String key) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Long smallestKey() {
+    public String smallestKey() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public String search(Long key) {
+    public String search(String key) {
         throw new UnsupportedOperationException();
     }
     @Override

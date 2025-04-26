@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 1, time = 1)
-@Measurement(iterations = 6, time = 1)
+@Warmup(iterations = 2, time = 1)
+@Measurement(iterations = 8)
 @Fork(1)
 @Threads(1)
 @BenchmarkMode({Mode.Throughput})
@@ -29,7 +29,7 @@ public class LinearVsBin {
         new Runner(opt).run();
     }
 
-    private static final Random random = new Random(12822);
+    private static final Random random = new Random();
     @Param({"1", "2", "64", "1024", "4096"})
     private int spread;
     private List<Long> keys;
@@ -44,17 +44,18 @@ public class LinearVsBin {
                 .boxed()
                 .toList();
         linearModel = LearnedModel.retrain(keys);
+        // LearnedModel.count = 0;
     }
 
     @Benchmark
     public int linearSearch() {
         int r = ThreadLocalRandom.current().nextInt(keys.size());
-        return linearModel.searchEq(keys, r);
+        return linearModel.search(keys, r);
     }
 
     @Benchmark
     public int binSearch() {
         long r = ThreadLocalRandom.current().nextInt(keys.size());
-        return LearnedModel.binSearch(keys, r);
+        return linearModel.binSearch(keys, r);
     }
 }

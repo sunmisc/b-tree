@@ -3,6 +3,7 @@ package me.sunmisc.btree.imm;
 import me.sunmisc.btree.LearnedModel;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class InternalNode extends Node {
@@ -12,8 +13,7 @@ public class InternalNode extends Node {
     public static final String STEAL_KEY_FROM_RIGHT = "STEAL_KEY_FROM_RIGHT";
     public static final String MERGE = "MERGE";
 
-    public InternalNode(int order, List<Long> keys,
-                        List<Node> children) {
+    public InternalNode(int order, List<String> keys, List<Node> children) {
         super(order, keys, children);
     }
 
@@ -29,109 +29,98 @@ public class InternalNode extends Node {
     }
 
     @Override
-    protected Node createNewNode(int order, List<Long> keys, List<Node> children) {
+    protected Node createNewNode(int order, List<String> keys, List<Node> children) {
         return new InternalNode(order, keys, children);
     }
 
     @Override
     public Node merge(Node otherNode) {
-        List<Long> toConcat = Utils.unshift(otherNode.smallestKey(), otherNode.keys);
-        List<Long> newKeys = new ArrayList<>(keys);
+        List<String> toConcat = Utils.unshift(otherNode.smallestKey(), otherNode.keys);
+        List<String> newKeys = new ArrayList<>(keys);
         newKeys.addAll(toConcat);
         List<Node> newChildren = new ArrayList<>(children);
         newChildren.addAll(otherNode.children);
         return new InternalNode(order, newKeys, newChildren);
     }
 
-    public DeletionStrategy chooseComplexDeletionStrategy(int childIdx, Node newChild) {
-        if (newChild.satisfiesMinChildren()) {
+    public DeletionStrategy chooseComplexDeletionStrategy(int childIdx, Node child) {
+        if (child.satisfiesMinChildren()) {
             return new DeletionStrategy(REPLACE);
         }
-
         boolean hasRightSibling = childIdx + 1 < children.size();
         boolean hasLeftSibling = childIdx - 1 >= 0;
-
-        boolean isLeaf = newChild instanceof LeafNode;
-
-        Node nullSibling = new EmptyNode();
-        Node rightSibling = hasRightSibling ? children.get(childIdx + 1) : nullSibling;
-        Node leftSibling = hasLeftSibling ? children.get(childIdx - 1) : nullSibling;
-
-        int minChildren = isLeaf ? Constants.LEAF_MIN_CHILDREN : Constants.INTERNAL_MIN_CHILDREN;
+        Node node = null;
+        if (hasLeftSibling || hasRightSibling) {
+            node = new EmptyNode();
+        }
+        Node right = hasRightSibling
+                ? children.get(childIdx + 1)
+                : node;
+        Node left = hasLeftSibling
+                ? children.get(childIdx - 1)
+                : node;
+        int minChildren = child.getMinChildren();
 
         String strategy;
-        if (rightSibling.getSize() >= leftSibling.getSize()) {
-            if (rightSibling.getSize() <= minChildren) {
-                strategy = MERGE;
-            } else {
-                strategy = STEAL_KEY_FROM_RIGHT;
-            }
-            return new DeletionStrategy(strategy, newChild, rightSibling, childIdx);
+        if (right.getSize() >= left.getSize()) {
+            strategy = right.getSize() <= minChildren ? MERGE : STEAL_KEY_FROM_RIGHT;
+            return new DeletionStrategy(strategy, child, right, childIdx);
         } else {
-            if (leftSibling.getSize() <= minChildren) {
-                strategy = MERGE;
-            } else {
-                strategy = STEAL_KEY_FROM_LEFT;
-            }
-            return new DeletionStrategy(strategy, leftSibling, newChild, childIdx - 1);
+            strategy = left.getSize() <= minChildren ? MERGE : STEAL_KEY_FROM_LEFT;
+            return new DeletionStrategy(strategy, left, child, childIdx - 1);
         }
     }
 
     @Override
-    public Node delete(boolean[] didChange, Long key) {
-        int childIdx = LearnedModel.binSearch(keys, key);
-        int index;
-        if (childIdx >= 0) {
-            // Если ключ найден в текущем узле, идём в правый дочерний узел
-            index = childIdx + 1;
-        } else {
-            // Если ключ не найден, используем точку вставки
-            index = -childIdx - 1;
-        }
+    public Node delete(boolean[] didChange, String key) {
+        int rawIndex = Collections.binarySearch(keys, key);
+        int index = rawIndex >= 0 ? rawIndex + 1 : -rawIndex - 1;
 
         Node origChild = children.get(index);
         Node child = origChild.delete(didChange, key);
 
-        if (!Utils.isSet(didChange)) {
-            return this;
-        }
-
         DeletionStrategy strategyInfo = chooseComplexDeletionStrategy(index, child);
         String strategy = strategyInfo.strategy;
-        if (strategy.equals(REPLACE)) {
-            return withReplacedChildren(index, List.of(child));
-        }
 
-        Node leftNode = strategyInfo.leftNode;
-        Node rightNode = strategyInfo.rightNode;
-        int leftNodeIdx = strategyInfo.leftNodeIdx;
+        return switch (strategy) {
+            case REPLACE -> createNewNode(order,
+                    keys,
+                    withReplacedChildren(index, List.of(child))
+            );
+            case MERGE -> {
+                Node leftNode = strategyInfo.leftNode;
+                Node rightNode = strategyInfo.rightNode;
+                int leftNodeIdx = strategyInfo.leftNodeIdx;
 
-        if (strategy.equals(MERGE)) {
-            return withMergedChildren(leftNodeIdx, leftNode, rightNode);
-        }
+                yield withMergedChildren(leftNodeIdx, leftNode, rightNode);
+            }
+            default -> {
+                Node leftNode = strategyInfo.leftNode;
+                Node rightNode = strategyInfo.rightNode;
+                int leftNodeIdx = strategyInfo.leftNodeIdx;
 
-        Node newLeftNode;
-        Node newRightNode;
-        if (strategy.equals(STEAL_KEY_FROM_RIGHT)) {
-            List<Node> newNodes = leftNode.stealFirstKeyFrom(rightNode);
-            newLeftNode = newNodes.get(0);
-            newRightNode = newNodes.get(1);
-        } else {
-            List<Node> newNodes = leftNode.giveLastKeyTo(rightNode);
-            newLeftNode = newNodes.get(0);
-            newRightNode = newNodes.get(1);
-        }
+                List<Node> newNodes = strategy.equals(STEAL_KEY_FROM_RIGHT)
+                        ? leftNode.stealFirstKeyFrom(rightNode)
+                        : leftNode.giveLastKeyTo(rightNode);
+                Node newLeftNode = newNodes.get(0);
+                Node newRightNode = newNodes.get(1);
 
-        InternalNode withReplacedChildren = withReplacedChildren(leftNodeIdx, List.of(newLeftNode, newRightNode));
-        int keyIdxToReplace = leftNodeIdx;
-        Long newKey = newRightNode.smallestKey();
-        withReplacedChildren.keys = Utils.set(keyIdxToReplace, newKey, withReplacedChildren.keys);
-        return withReplacedChildren;
+                List<Node> withReplacedChildren = withReplacedChildren(
+                        leftNodeIdx,
+                        List.of(newLeftNode, newRightNode));
+                String newKey = newRightNode.smallestKey();
+                yield createNewNode(
+                        order,
+                        Utils.set(leftNodeIdx, newKey, keys),
+                        withReplacedChildren
+                );
+            }
+        };
     }
 
     public InternalNode withMergedChildren(int leftChildIdx, Node leftNode, Node rightNode) {
         Node mergedChild = leftNode.merge(rightNode);
-        List<Long> newKeys = Utils.withoutIdx(leftChildIdx, keys);
+        List<String> newKeys = Utils.withoutIdx(leftChildIdx, keys);
 
         boolean areLeftmostNodes = leftChildIdx == 0;
         if (!areLeftmostNodes) {
@@ -147,7 +136,7 @@ public class InternalNode extends Node {
 
 
     public List<Node> stealFirstKeyFrom(Node rightSibling) {
-        List<Long> newKeys = new ArrayList<>(keys);
+        List<String> newKeys = new ArrayList<>(keys);
         newKeys.add(rightSibling.smallestKey());
         List<Node> newChildren = new ArrayList<>(children);
         newChildren.add(rightSibling.children.get(0));
@@ -156,28 +145,28 @@ public class InternalNode extends Node {
 
     public List<Node> giveLastKeyTo(Node rightSibling) {
         Node stolenValue = children.getLast();
-        List<Long> newSiblingKeys = Utils.unshift(rightSibling.smallestKey(), rightSibling.keys);
+        List<String> newSiblingKeys = Utils.unshift(rightSibling.smallestKey(), rightSibling.keys);
         List<Node> newSiblingChildren = Utils.unshift(stolenValue, rightSibling.children);
         InternalNode newSibling = new InternalNode(order, newSiblingKeys, newSiblingChildren);
         return List.of(this.init(), newSibling);
     }
 
-    public InternalNode withReplacedChildren(int idx, List<Node> newChildren) {
+    public List<Node> withReplacedChildren(int idx, List<Node> newChildren) {
         List<Node> replaced = new ArrayList<>(children);
         for (int i = 0; i < newChildren.size(); i++) {
             replaced.set(idx + i, newChildren.get(i));
         }
-        return new InternalNode(order, keys, replaced);
+        return replaced;
     }
 
     @Override
-    public Long smallestKey() {
+    public String smallestKey() {
         return children.getFirst().smallestKey();
     }
 
     private List<Object> split() {
         int mid = keys.size() >>> 1;
-        Long midVal = keys.get(mid);
+        String midVal = keys.get(mid);
         InternalNode left = new InternalNode(order,
                 this.keys.subList(0, mid),
                 this.children.subList(0, mid + 1));
@@ -189,30 +178,26 @@ public class InternalNode extends Node {
     }
 
 
-    public InternalNode withSplitChild(Long newKey, Node splitChild, Node newChild) {
-        int childIdx = LearnedModel.binSearch(keys, newKey);
+    public InternalNode withSplitChild(String newKey, Node splitChild, Node newChild) {
+        int childIdx = Collections.binarySearch(keys, newKey);
         int index = childIdx < 0 ? -childIdx - 1 : childIdx;
 
-        List<Long> newKeys = Utils.append(index, newKey, keys);
+        List<String> newKeys = Utils.append(index, newKey, keys);
         List<Node> newChildren = Utils.append(index + 1, newChild, children);
         newChildren.set(index, splitChild);
         return new InternalNode(order, newKeys, newChildren);
     }
 
     @Override
-    public Node insert(boolean[] didChange, Long key, String value) {
-        int childIdx = LearnedModel.binSearch(keys, key);
-        int index = childIdx < 0 ? -childIdx - 1 : childIdx;
+    public Node insert(boolean[] didChange, String key, String value) {
+        int childIdx = Collections.binarySearch(keys, key);
+        int index = childIdx < 0 ? -childIdx - 1 : childIdx + 1;
 
         Node child = children.get(index);
         Node newChild = child.insert(didChange, key, value);
 
-        if (!Utils.isSet(didChange)) {
-            return this;
-        }
-
         if (newChild instanceof SplitResult splitArr) {
-            Long medianKey = splitArr.medianKey;
+            String medianKey = splitArr.medianKey;
             Node splitChild = splitArr.leftNode;
             Node _newChild = splitArr.rightNode;
 
@@ -221,14 +206,13 @@ public class InternalNode extends Node {
                     new SplitResult(withSplitChild.split()) : withSplitChild;
         }
 
-        return withReplacedChildren(index, List.of(newChild));
+        return createNewNode(order, keys, withReplacedChildren(index, List.of(newChild)));
     }
 
     @Override
-    public String search(Long key) {
-        int index = LearnedModel.binSearch(keys, key);
+    public String search(String key) {
+        int index = Collections.binarySearch(keys, key);
         index = index >= 0 ? index + 1 : -index - 1;
-
         return children.get(index).search(key);
     }
 }

@@ -1,46 +1,57 @@
 package me.sunmisc.btree.imm;
 
-import me.sunmisc.btree.LearnedModel;
-
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static me.sunmisc.btree.imm.Constants.*;
 
 public class LeafNode extends Node {
-    private final LearnedModel model;
-    private final Map<Long, String> map;
+    // private final LearnedModel model;
 
-    public LeafNode(int order, List<Long> keys) {
+    public LeafNode(int order, List<String> keys) {
         super(order, keys, List.of());
-        if (!LearnedModel.learned) {
-            this.map = keys.stream().collect(
-                    Collectors.toUnmodifiableMap(e -> e, e -> "" + e)
-            );
-            model = LearnedModel.retrain(List.of());
-        } else {
-            this.model = LearnedModel.retrain(keys);
-            this.map = null;
-        }
+
+        // this.model = LearnedModel.retrain(keys);
+    }
+    protected Node forCreate(int order, List<String> keys) {
+       // System.out.println(this.keys + " Found key \n" + keys+ " \n");
+        return new LeafNode(order, keys);
+    }
+    protected LeafNode forMerge(int order, List<String> keys) {
+        // System.out.println(this.keys + " STEAL \n" + keys+ " \n");
+        return new LeafNode(order, keys);
+    }
+
+    protected LeafNode forSteal(int order, List<String> keys) {
+     //   System.out.println(this.keys + " SPLIT \n" + keys+ " \n");
+        return new LeafNode(order, keys);
+    }
+
+
+    protected Node forDelete(int order, List<String> keys) {
+       // System.out.println(this.keys + " Found key \n" + keys+ " \n");
+        return new LeafNode(order, keys);
+    }
+
+    public Node tail() {
+        return forCreate(order, Utils.tail(keys));
     }
 
     @Override
-    protected Node createNewNode(int order, List<Long> keys, List<Node> children) {
+    protected Node createNewNode(int order, List<String> keys, List<Node> children) {
         return new LeafNode(order, keys);
     }
 
     @Override
-    public Node delete(boolean[] didChange, Long key) {
-        int idx = model.search(keys, key);
+    public Node delete(boolean[] didChange, String key) {
+        int idx = Collections.binarySearch(keys, key);
         if (idx < 0) {
             throw new IllegalArgumentException();
         }
         Utils.setRef(didChange);
-        List<Long> newKeys = Utils.withoutIdx(idx, keys);
-        return new LeafNode(order, newKeys);
+        List<String> newKeys = Utils.withoutIdx(idx, keys);
+        return forDelete(order, newKeys);
     }
 
     @Override
@@ -58,39 +69,39 @@ public class LeafNode extends Node {
         if (!(otherNode instanceof LeafNode otherLeaf)) {
             throw new IllegalArgumentException("Can only merge with another Leaf node");
         }
-        List<Long> newKeys = new ArrayList<>(keys);
+        List<String> newKeys = new ArrayList<>(keys);
         newKeys.addAll(otherLeaf.keys);
-        return new LeafNode(order, newKeys);
+
+        return forMerge(order, newKeys);
     }
 
 
     @Override
-    public Node insert(boolean[] didChange, Long key, String value) {
-        int idx = model.search(keys, key);
+    public Node insert(boolean[] didChange, String key, String value) {
+        int idx = Collections.binarySearch(keys, key);
 
-        List<Long> newKeys;
+        List<String> newKeys;
         if (idx < 0) {
             idx = -idx - 1;
             newKeys = Utils.append(idx, key, keys);
         } else {
             newKeys = Utils.set(idx, key, keys);
         }
-
         Utils.setRef(didChange);
-        LeafNode newLeaf = new LeafNode(order, newKeys);
+        LeafNode newLeaf = (LeafNode) forSteal(order, newKeys);
         return newLeaf.shouldSplit() ? new SplitResult(newLeaf.split()) : newLeaf;
     }
 
     public List<Object> split() {
         int cutoff = keys.size() >>> 1;
-        Long mid = keys.get(cutoff);
+        String mid = keys.get(cutoff);
 
-        List<List<Long>> keyPair = Utils.splitAt(cutoff, keys);
-        List<Long> thisKeys = keyPair.get(0);
-        List<Long> otherKeys = keyPair.get(1);
+        List<List<String>> keyPair = Utils.splitAt(cutoff, keys);
+        List<String> thisKeys = keyPair.get(0);
+        List<String> otherKeys = keyPair.get(1);
 
-        LeafNode other = new LeafNode(order, otherKeys);
-        LeafNode thisSplit = new LeafNode(order, thisKeys);
+        Node other = forSteal(order, otherKeys);
+        Node thisSplit = forSteal(order, thisKeys);
         return List.of(mid, thisSplit, other);
     }
 
@@ -100,47 +111,44 @@ public class LeafNode extends Node {
     }
 
     @Override
-    public Long smallestKey() {
+    public String smallestKey() {
         return keys.getFirst();
     }
 
     @Override
     public List<Node> stealFirstKeyFrom(Node rightSibling) {
-        Long stolenKey = rightSibling.keys.get(0);
+        String stolenKey = rightSibling.keys.get(0);
 
-        List<Long> newKeys = Utils.append(keys.size(), stolenKey, keys);
-
-        List<Long> newSiblingKeys = Utils.tail(rightSibling.keys);
+        List<String> newKeys = Utils.append(keys.size(), stolenKey, keys);
+        List<String> newRightKeys = rightSibling.keys.subList(1, rightSibling.keys.size()); // убираем первый ключ
 
         return List.of(
-                new LeafNode(order, newKeys),
-                new LeafNode(rightSibling.order, newSiblingKeys)
+                forSteal(order, newKeys),
+                new LeafNode(order, newRightKeys) // явно создаем новый rightSibling без первого ключа
         );
     }
 
     @Override
     public List<Node> giveLastKeyTo(Node rightSibling) {
-        Long keyToGive = keys.get(keys.size() - 1);
+        String keyToGive = keys.get(keys.size() - 1);
 
-        List<Long> newSiblingKeys = Utils.unshift(keyToGive, rightSibling.keys);
+        List<String> newSiblingKeys = Utils.unshift(keyToGive, rightSibling.keys);
+        List<String> newThisKeys = keys.subList(0, keys.size() - 1); // убираем последний ключ
 
-        LeafNode newSibling = new LeafNode(order, newSiblingKeys);
-        LeafNode thisWithoutLastKey = (LeafNode) this.init();
-        return List.of(thisWithoutLastKey, newSibling);
+        LeafNode newSibling = forMerge(order, newSiblingKeys);
+        LeafNode newThis = new LeafNode(order, newThisKeys);
+
+        return List.of(newThis, newSibling);
     }
 
 
     @Override
-    public String search(Long key) {
-        if (map != null) {
-            return map.get(key);
+    public String search(String key) {
+        int idx = Collections.binarySearch(keys, key);
+        if (idx < 0) {
+            return null;
         } else {
-            int idx = model.searchEq(keys, key);
-            if (idx < 0) {
-                return null;
-            } else {
-                return "" + keys.get(idx);
-            }
+            return keys.get(idx);
         }
     }
 }

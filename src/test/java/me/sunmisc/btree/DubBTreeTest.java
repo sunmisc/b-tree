@@ -5,39 +5,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class BTreeTest {
-
+public class DubBTreeTest {
     @Test
     public void testAddAndPoll() {
-        TreeMap<String, String> map = new TreeMap<>();
+        List<Long> map = new ArrayList<>();
         BTree bTree = new BTree();
-        for (long i = 0; i < 1000; ++i) {
-            map.put(i+"", i+"");
+        for (long i = 0; i < 10000; ++i) {
+            map.add(i);
             bTree.insert(String.valueOf(i), i+"");
         }
-        for (long i = 0; i < 1000; ++i) {
-            long r = i + 1000;
+        for (long i = 0; i < 10000; ++i) {
+            long r = i + 10000;
             bTree.insert(String.valueOf(r), r+"");
-            bTree.delete(bTree.firstKey());
+            bTree.delete(bTree.getRoot().smallestKey());
 
-            map.put(r+"", r+"");
-            map.pollFirstEntry();
+            map.add(r);
+            map.removeFirst();
         }
-        for (long i = 0; i < 1000; ++i) {
+        for (long i = 0; i < 10000; ++i) {
             long key = i;
-            String expected = map.get(key+"");
+            int index = map.indexOf(key);
+            String expected = index < 0 ? null : map.get(index)+"";
             String actual = bTree.search(String.valueOf(key));
-            if (!Objects.equals(expected, actual)) {
-                bTree.print();
-            }
             assertEquals(expected, actual, "Key " + key);
         }
     }
