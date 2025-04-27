@@ -15,23 +15,24 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class BTreeTest {
 
+    private static final int MAX_SIZE = 10_000;
     @Test
     public void testAddAndPoll() {
         TreeMap<String, String> map = new TreeMap<>();
         BTree bTree = new BTree();
-        for (long i = 0; i < 1000; ++i) {
+        for (long i = 0; i < MAX_SIZE; ++i) {
             map.put(i+"", i+"");
             bTree.insert(String.valueOf(i), i+"");
         }
-        for (long i = 0; i < 1000; ++i) {
-            long r = i + 1000;
+        for (long i = 0; i < MAX_SIZE; ++i) {
+            long r = i + MAX_SIZE;
             bTree.insert(String.valueOf(r), r+"");
             bTree.delete(bTree.firstKey());
 
             map.put(r+"", r+"");
             map.pollFirstEntry();
         }
-        for (long i = 0; i < 1000; ++i) {
+        for (long i = 0; i < MAX_SIZE; ++i) {
             long key = i;
             String expected = map.get(key+"");
             String actual = bTree.search(String.valueOf(key));
@@ -46,11 +47,11 @@ public class BTreeTest {
     public void testAdd() {
         Map<Long, String> expectedMap = new HashMap<>();
         BTree bTree = new BTree();
-        for (long i = 0; i < 10000; ++i) {
+        for (long i = 0; i < MAX_SIZE; ++i) {
             expectedMap.put(i, i+"");
             bTree.insert(String.valueOf(i), i+"");
         }
-        for (long i = 0; i < 10000; ++i) {
+        for (long i = 0; i < MAX_SIZE; ++i) {
             long key = i;
             String expected = expectedMap.get(key);
             String actual = bTree.search(String.valueOf(key));
@@ -62,7 +63,7 @@ public class BTreeTest {
     public void testRemoveAndAddRand(int step) {
         Map<Long, String> expectedMap = new HashMap<>();
         BTree actualBTree = new BTree();
-        int maxValue = 1000;
+        int maxValue = MAX_SIZE;
 
         // Act - Initial insertion
         for (int i = 0; i < maxValue; i++) {
@@ -102,7 +103,7 @@ public class BTreeTest {
     public void testRemoveAndAdd(int step) {
         Map<Long, String> expectedMap = new HashMap<>();
         BTree actualBTree = new BTree();
-        int maxValue = 1000;
+        int maxValue = MAX_SIZE;
 
         // Act - Initial insertion
         for (long i = 0; i < maxValue; i++) {
@@ -141,15 +142,15 @@ public class BTreeTest {
     public void testMultipleDeletions() {
         BTree bTree = new BTree();
         Map<Long, String> expectedMap = new HashMap<>();
-        for (long i = 0; i < 300; i++) {
+        for (long i = 0; i < MAX_SIZE; i++) {
             bTree.insert(String.valueOf(i), i + "");
             expectedMap.put(i, i + "");
         }
-        for (long i = 0; i < 300; i += 1) {
+        for (long i = 0; i < MAX_SIZE; i += 1) {
             bTree.delete(String.valueOf(i));
             expectedMap.remove(i);
         }
-        for (long i = 0; i < 100; i++) {
+        for (long i = 0; i < MAX_SIZE; i++) {
             assertEquals(expectedMap.get(i), bTree.search(String.valueOf(i)), "Key " + i);
         }
     }

@@ -7,28 +7,22 @@ public class BTree {
     private Node root;
 
     public BTree() {
-        this.root = new LeafNode(Constants.ORDER, new ArrayList<>());
+        this.root = new LeafNode(new ArrayList<>());
     }
 
     public void insert(String key, String value) {
-     /*   if (search(key) != null) {
-            //   System.out.println("Key already exists, skipping: " + key);
-            return;
-        }*/
-            boolean[] didChange = new boolean[1];
-            Node newRoot = root.insert(didChange, key, value);
-            if (newRoot instanceof SplitResult split) {
-                List<Node> newChildren = List.of(split.leftNode, split.rightNode);
-                root = new InternalNode(Constants.ORDER, List.of(split.medianKey), newChildren);
-            } else {
-                root = newRoot;
-            }
+        Node newRoot = root.insert(key, value);
+        if (newRoot instanceof SplitResult split) {
+            List<Node> newChildren = List.of(split.leftNode, split.rightNode);
+            root = new InternalNode(List.of(split.medianKey), newChildren);
+        } else {
+            root = newRoot;
+        }
     }
 
     public void delete(String key) {
-        boolean[] didChange = new boolean[1];
         try {
-            Node newRoot = root.delete(didChange, key);
+            Node newRoot = root.delete(key);
             // print();
             if (newRoot.getSize() < 2 && !(newRoot instanceof LeafNode)) {
                 root = newRoot.children.getFirst();

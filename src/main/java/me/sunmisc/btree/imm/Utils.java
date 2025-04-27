@@ -26,34 +26,23 @@ public final class Utils {
     }
 
     public static <T> List<List<T>> splitAt(int idx, List<T> list) {
-        List<T> left = new ArrayList<>(list.subList(0, idx));
-        List<T> right = new ArrayList<>(list.subList(idx, list.size()));
+        List<T> left = List.copyOf(list.subList(0, idx));
+        List<T> right = List.copyOf(list.subList(idx, list.size()));
         return List.of(left, right);
     }
 
-    public static <T> List<T> copy(List<T> list) {
-        return new ArrayList<>(list);
+    public static <V> List<V> head(List<V> list) {
+        return list.isEmpty() ? List.of() : List.copyOf(list.subList(0, list.size() - 1));
     }
-
+    
     public static <T> List<T> tail(List<T> list) {
-        if (list.isEmpty()) {
-            return new ArrayList<>();
-        }
-        return new ArrayList<>(list.subList(1, list.size()));
+        return list.isEmpty() ? List.of() : List.copyOf(list.subList(1, list.size()));
     }
 
     public static <T> List<T> unshift(T value, List<T> list) {
-        List<T> result = new ArrayList<>();
+        List<T> result = new ArrayList<>(list.size() + 1);
         result.add(value);
         result.addAll(list);
         return result;
-    }
-
-    public static void setRef(boolean[] ref) {
-        ref[0] = true;
-    }
-
-    public static boolean isSet(boolean[] ref) {
-        return ref[0];
     }
 }

@@ -9,7 +9,7 @@ public class SplitResult extends Node {
     public final Node rightNode;
 
     public SplitResult(List<Object> splitData) {
-        super(0, new ArrayList<>(), new ArrayList<>());
+        super(new ArrayList<>(), new ArrayList<>());
         this.medianKey = (String) splitData.get(0);
         this.leftNode = (Node) splitData.get(1);
         this.rightNode = (Node) splitData.get(2);
@@ -31,17 +31,17 @@ public class SplitResult extends Node {
     }
 
     @Override
-    protected Node createNewNode(int order, List<String> keys, List<Node> children) {
+    protected Node createNewNode(List<String> keys, List<Node> children) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Node insert(boolean[] didChange, String key, String value) {
+    public Node insert(String key, String value) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Node delete(boolean[] didChange, String key) {
+    public Node delete(String key) {
         throw new UnsupportedOperationException();
     }
 
